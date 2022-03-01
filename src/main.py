@@ -149,7 +149,7 @@ def post_tweet(tweet_handler, target_date_obj, cannot_reserve_to_reserve):
             f"wheelchairCount=0&" \
             f"stretcherCount=0&" \
             f"showWay=&" \
-            f"reservationStatus=0&" \
+            f"reservationStatus=1&" \
             f"beforeUrl=%2Finternalerror%2F&" \
             f"wayBack="
     url = HOST + path + "?" + param

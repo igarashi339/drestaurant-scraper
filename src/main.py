@@ -180,6 +180,7 @@ def main():
     all_restaurant_name = fetch_all_restaurant_name(driver, target_date_obj_list[0])
     for counter in range(ROUND_PER_EXEC):
         for target_datetime_obj in target_date_obj_list:
+            time.sleep(5)
             target_datetime_str = format(target_datetime_obj, '%Y/%m/%d')
             try:
                 can_reserve_restaurant_name_list = fetch_single_date_restaurant_info(driver, target_datetime_obj)
@@ -193,10 +194,13 @@ def main():
                                                      all_restaurant_name,
                                                      can_reserve_restaurant_name_list)
             update_db(db_handler, target_datetime_obj, cannot_reserve_to_reserve, reserve_to_cannot_reserve)
-            if len(cannot_reserve_to_reserve) != 0:
-                post_tweet(tweet_handler, target_datetime_obj, cannot_reserve_to_reserve)
-            print(target_datetime_str, cannot_reserve_to_reserve, reserve_to_cannot_reserve)
-            time.sleep(5)
+            try:
+                if len(cannot_reserve_to_reserve) != 0:
+                    post_tweet(tweet_handler, target_datetime_obj, cannot_reserve_to_reserve)
+                print(target_datetime_str, cannot_reserve_to_reserve, reserve_to_cannot_reserve)
+            except Exception as e:
+                print(f"Twitterへの投稿に失敗しました：{target_datetime_str}")
+                print(e)
     driver.quit()
 
 

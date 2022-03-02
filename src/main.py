@@ -36,8 +36,10 @@ def fetch_all_restaurant_name(driver, target_datetime_obj):
     すべてのレストランの名称を返却する。
     """
     path = "/sp/restaurant/list/"
-    target_date_str = target_datetime_obj.strftime('%Y%m%d')
-    param = f"useDate={target_date_str}&" \
+    # クローリング当日に近い日付だとパークレストランが表示されないため10日後にしている
+    ten_days_after_datetime = target_datetime_obj + timedelta(days=10)
+    ten_days_after_datetime_str = ten_days_after_datetime.strftime('%Y%m%d')
+    param = f"useDate={ten_days_after_datetime_str}&" \
             f"mealDivInform=&" \
             f"adultNum=2&" \
             f"childNum=0&" \
@@ -61,8 +63,26 @@ def fetch_all_restaurant_name(driver, target_datetime_obj):
         time.sleep(5)
     if len(icon_show_restaurant_list) == 0:
         raise Exception(f"{MAX_RETRY}回リトライしましたがアクセスできませんでした。")
-    name_list = driver.find_elements_by_class_name("name")
-    return[name.text for name in name_list][:-2]  # 後ろ2つの要素は不要
+
+    # ディズニーランド
+    disney_land_restaurant_list = [name.text for name in driver.find_elements_by_css_selector(".location4 .name")]
+    # ディズニーシー
+    disney_sea_restaurant_list = [name.text for name in driver.find_elements_by_css_selector(".location5 .name")]
+    # アンバサダーホテル
+    ambassador_restaurant_list = [name.text for name in driver.find_elements_by_css_selector(".location1 .name")]
+    # ホテルミラコスタ
+    miracosta_restaurant_list = [name.text for name in driver.find_elements_by_css_selector(".location2 .name")]
+    # ディズニーランドホテル
+    disney_land_hotel_restaurant_list = [name.text for name in driver.find_elements_by_css_selector(".location3 .name")]
+    # トイストーリーホテル
+    toy_story_hotel_restaurant_list = [name.text for name in driver.find_elements_by_css_selector(".location7 .name")]
+
+    park_restaurant_list = disney_land_restaurant_list + disney_sea_restaurant_list
+    hotel_restaurant_list = ambassador_restaurant_list + miracosta_restaurant_list + \
+                            disney_land_hotel_restaurant_list + toy_story_hotel_restaurant_list
+    all_restaurant_list = park_restaurant_list + hotel_restaurant_list
+
+    return all_restaurant_list, park_restaurant_list, hotel_restaurant_list
 
 
 def fetch_single_date_restaurant_info(driver, target_datetime_obj):
@@ -132,11 +152,11 @@ def update_db(db_handler, target_datetime_obj, cannot_reserve_to_reserve, reserv
         db_handler.delete_drestaurant_status(target_datetime_obj, restaurant_name)
 
 
-def post_tweet(tweet_handler, target_date_obj, cannot_reserve_to_reserve):
+def post_tweet(tweet_handler, target_date_obj, cannot_reserve_to_reserve, park_restaurant_list, hotel_restaurant_list):
     """
     ツイートする。
     """
-    # URLを生成
+    # ツイートにのせるURLを生成
     path = "/sp/restaurant/list/"
     target_date_str = target_date_obj.strftime('%Y%m%d')
     param = f"useDate={target_date_str}&" \
@@ -156,17 +176,38 @@ def post_tweet(tweet_handler, target_date_obj, cannot_reserve_to_reserve):
 
     dt_now_utc_aware = datetime.now(timezone(timedelta(hours=9)))
     weekday_str = WEEKDAY_LIST[target_date_obj.weekday()]
-    tweet_text = f"{format(target_date_obj, '%Y/%m/%d')}({weekday_str}) 予約がとれそう！\n"
-    for i, restaurant_name in enumerate(cannot_reserve_to_reserve):
-        tweet_text += f"{restaurant_name}\n"
-        if i > 5:
-            # ツイートの文字制限対策
-            tweet_text += "...\n"
-            break
-    tweet_text += url + "\n"
-    tweet_text += f"※{dt_now_utc_aware.strftime('%Y/%m/%d %H:%M:%S')}時点の情報\n"
-    tweet_text += f"#ディズニー #ディズニーレストラン"
-    tweet_handler.post_tweet(tweet_text)
+
+    # パークレストラン、ホテルレストランごとにツイートする
+    tweet_target_park_restaurant_set = set(cannot_reserve_to_reserve) & set(park_restaurant_list)
+    tweet_target_hotel_restaurant_set = set(cannot_reserve_to_reserve) & set(hotel_restaurant_list)
+
+    if len(tweet_target_park_restaurant_set) != 0:
+        tweet_text = f"{format(target_date_obj, '%Y/%m/%d')}({weekday_str}) 予約がとれそう！\n"
+        tweet_target_park_restaurant_list = list(tweet_target_park_restaurant_set)
+        for i, restaurant_name in enumerate(tweet_target_park_restaurant_list):
+            tweet_text += f"{restaurant_name}\n"
+            if i > 5:
+                # ツイートの文字制限対策
+                tweet_text += "...\n"
+                break
+        tweet_text += url + "\n"
+        tweet_text += f"※{dt_now_utc_aware.strftime('%Y/%m/%d %H:%M:%S')}時点の情報\n"
+        tweet_text += f"#ディズニー #ディズニーレストラン #パークレストラン"
+        tweet_handler.post_tweet(tweet_text)
+
+    if len(tweet_target_hotel_restaurant_set) != 0:
+        tweet_text = f"{format(target_date_obj, '%Y/%m/%d')}({weekday_str}) 予約がとれそう！\n"
+        tweet_target_hotel_restaurant_list = list(tweet_target_hotel_restaurant_set)
+        for i, restaurant_name in enumerate(tweet_target_hotel_restaurant_list):
+            tweet_text += f"{restaurant_name}\n"
+            if i > 5:
+                # ツイートの文字制限対策
+                tweet_text += "...\n"
+                break
+        tweet_text += url + "\n"
+        tweet_text += f"※{dt_now_utc_aware.strftime('%Y/%m/%d %H:%M:%S')}時点の情報\n"
+        tweet_text += f"#ディズニー #ディズニーレストラン #ホテルレストラン"
+        tweet_handler.post_tweet_hotel(tweet_text)
 
 
 def main():
@@ -177,7 +218,8 @@ def main():
     db_handler = DBHandler()
     tweet_handler = TweetHandler()
     target_date_obj_list = get_target_date_obj_list()
-    all_restaurant_name = fetch_all_restaurant_name(driver, target_date_obj_list[0])
+    all_restaurant_name, park_restaurant_list, hotel_restaurant_list \
+        = fetch_all_restaurant_name(driver, target_date_obj_list[0])
     for counter in range(ROUND_PER_EXEC):
         for target_datetime_obj in target_date_obj_list:
             time.sleep(5)
@@ -196,7 +238,11 @@ def main():
             update_db(db_handler, target_datetime_obj, cannot_reserve_to_reserve, reserve_to_cannot_reserve)
             try:
                 if len(cannot_reserve_to_reserve) != 0:
-                    post_tweet(tweet_handler, target_datetime_obj, cannot_reserve_to_reserve)
+                    post_tweet(tweet_handler,
+                               target_datetime_obj,
+                               cannot_reserve_to_reserve,
+                               park_restaurant_list,
+                               hotel_restaurant_list)
                 print(target_datetime_str, cannot_reserve_to_reserve, reserve_to_cannot_reserve)
             except Exception as e:
                 print(f"Twitterへの投稿に失敗しました：{target_datetime_str}")

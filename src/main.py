@@ -3,6 +3,7 @@ import time
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from db_handler import DBHandler
+from line_handler import LineHandler
 from tweet_handler import TweetHandler
 from datetime import datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
@@ -152,9 +153,9 @@ def update_db(db_handler, target_datetime_obj, cannot_reserve_to_reserve, reserv
         db_handler.delete_drestaurant_status(target_datetime_obj, restaurant_name)
 
 
-def post_tweet(tweet_handler, target_date_obj, cannot_reserve_to_reserve, park_restaurant_list, hotel_restaurant_list):
+def post_to_media(tweet_handler, target_date_obj, cannot_reserve_to_reserve, park_restaurant_list, hotel_restaurant_list, line_handler):
     """
-    ツイートする。
+    メディアに投稿する。
     """
     # ツイートにのせるURLを生成
     path = "/sp/restaurant/list/"
@@ -209,6 +210,10 @@ def post_tweet(tweet_handler, target_date_obj, cannot_reserve_to_reserve, park_r
         tweet_text += f"#ディズニー #ディズニーレストラン #ホテルレストラン"
         tweet_handler.post_tweet_hotel(tweet_text)
 
+    # 個人的にほしいやつ
+    if format(target_date_obj, '%Y/%m/%d') == "2022/03/12" and "シェフ・ミッキー" in tweet_target_park_restaurant_set:
+        line_handler.broadcast(f"2022/03/12 シェフミッキー空いてるよ！\n{url}")
+
 
 def main():
     driver = webdriver.Remote(
@@ -217,6 +222,7 @@ def main():
     driver.implicitly_wait(5)
     db_handler = DBHandler()
     tweet_handler = TweetHandler()
+    line_handler = LineHandler()
     target_date_obj_list = get_target_date_obj_list()
     all_restaurant_name, park_restaurant_list, hotel_restaurant_list \
         = fetch_all_restaurant_name(driver, target_date_obj_list[0])
@@ -238,14 +244,15 @@ def main():
             update_db(db_handler, target_datetime_obj, cannot_reserve_to_reserve, reserve_to_cannot_reserve)
             try:
                 if len(cannot_reserve_to_reserve) != 0:
-                    post_tweet(tweet_handler,
-                               target_datetime_obj,
-                               cannot_reserve_to_reserve,
-                               park_restaurant_list,
-                               hotel_restaurant_list)
+                    post_to_media(tweet_handler,
+                                  target_datetime_obj,
+                                  cannot_reserve_to_reserve,
+                                  park_restaurant_list,
+                                  hotel_restaurant_list,
+                                  line_handler)
                 print(target_datetime_str, cannot_reserve_to_reserve, reserve_to_cannot_reserve)
             except Exception as e:
-                print(f"Twitterへの投稿に失敗しました：{target_datetime_str}")
+                print(f"メディアへの投稿に失敗しました：{target_datetime_str}")
                 print(e)
     driver.quit()
 

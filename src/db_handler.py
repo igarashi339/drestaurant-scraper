@@ -46,3 +46,9 @@ class DBHandler:
             sys.exit()
         return result_dict
 
+    def delete_unnecessary_records(self):
+        dt_now = datetime.now(timezone(timedelta(hours=9)))
+        table_name = "drestaurant_status"
+        query_str = "DELETE FROM " + table_name + " where target_date < " + "\'" + dt_now.strftime('%Y-%m-%d') + "\'"
+        self.exec_query(query_str)
+

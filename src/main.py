@@ -217,6 +217,7 @@ def main():
         desired_capabilities=DesiredCapabilities.FIREFOX.copy())
     driver.implicitly_wait(5)
     db_handler = DBHandler()
+    db_handler.delete_unnecessary_records()
     tweet_handler = TweetHandler()
     line_handler = LineHandler()
     target_date_obj_list = get_target_date_obj_list()

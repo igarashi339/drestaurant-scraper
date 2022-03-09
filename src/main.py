@@ -210,10 +210,6 @@ def post_to_media(tweet_handler, target_date_obj, cannot_reserve_to_reserve, par
         tweet_text += f"#ディズニー #ディズニーレストラン #ホテルレストラン"
         tweet_handler.post_tweet_hotel(tweet_text)
 
-    # 個人的にほしいやつ
-    if format(target_date_obj, '%Y/%m/%d') == "2022/03/12" and "シェフ・ミッキー" in tweet_target_park_restaurant_set:
-        line_handler.broadcast(f"2022/03/12 シェフミッキー空いてるよ！\n{url}")
-
 
 def main():
     driver = webdriver.Remote(

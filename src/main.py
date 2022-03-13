@@ -211,6 +211,24 @@ def post_to_media(tweet_handler, target_date_obj, cannot_reserve_to_reserve, par
         tweet_handler.post_tweet_hotel(tweet_text)
 
 
+def recreate_restaurant_list_db(db_handler, park_restaurant_list, hotel_restaurant_list):
+    """
+    レストラン一覧テーブルを再作成する。
+    """
+    # 前回の更新から1週間以内なら再作成しない
+    last_update_info = db_handler.get_last_update_of_drestaurant_list()
+    last_update_info_with_tz = last_update_info.astimezone(timezone(timedelta(hours=9)))
+    dt_now = datetime.now(timezone(timedelta(hours=9)))
+    diff = dt_now - last_update_info_with_tz
+    if diff < timedelta(days=7):
+        return
+    db_handler.delete_all_record(table_name="drestaurant_list")
+    for restaurant in park_restaurant_list:
+        db_handler.insert_record_to_drestaurant_list(restaurant, "park")
+    for restaurant in hotel_restaurant_list:
+        db_handler.insert_record_to_drestaurant_list(restaurant, "hotel")
+
+
 def main():
     driver = webdriver.Remote(
         command_executor=os.environ["SELENIUM_URL"],
@@ -223,6 +241,7 @@ def main():
     target_date_obj_list = get_target_date_obj_list()
     all_restaurant_name, park_restaurant_list, hotel_restaurant_list \
         = fetch_all_restaurant_name(driver, target_date_obj_list[0])
+    recreate_restaurant_list_db(db_handler, park_restaurant_list, hotel_restaurant_list)
     for counter in range(ROUND_PER_EXEC):
         for target_datetime_obj in target_date_obj_list:
             time.sleep(5)

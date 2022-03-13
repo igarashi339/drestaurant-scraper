@@ -17,6 +17,38 @@ class DBHandler:
         except Exception as e:
             print(e.__str__())
 
+    def get_last_update_of_drestaurant_list(self):
+        """
+        drestaurant_listの前回の更新日時を返す。
+        """
+        table_name = "drestaurant_list"
+        query_str = f"SELECT * FROM {table_name} limit 1"
+        try:
+            with psycopg2.connect(self.database_url, sslmode='require') as conn:
+                with conn.cursor(cursor_factory=DictCursor) as cur:
+                    cur.execute(query_str)
+                    result = cur.fetchone()
+        except Exception as e:
+            print(e.__str__())
+            sys.exit()
+        return result["last_update"]
+
+    def insert_record_to_drestaurant_list(self, restaurant_name, type_str):
+        """
+        レストラン一覧に情報を追加する。
+        """
+        dt_now = str(datetime.now(timezone(timedelta(hours=9))))
+        query_str = f"insert into drestaurant_list (restaurant_name,type,last_update) values (\'{restaurant_name}\',\'{type_str}\',\'{dt_now}\')"
+        print("insert")
+        self.exec_query(query_str)
+
+    def delete_all_record(self, table_name):
+        """
+        対象テーブルのレコードをすべて削除する。
+        """
+        query_str = f"delete from {table_name}"
+        self.exec_query(query_str)
+
     def update_drestaurant_status(self, target_date: datetime, restaurant_name: str, status: bool):
         table_name = "drestaurant_status"
         dt_now = str(datetime.now(timezone(timedelta(hours=9))))
